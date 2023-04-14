@@ -1,11 +1,14 @@
-import Arweave from "arweave";
-import { LoggerFactory, WarpNodeFactory } from "warp-contracts";
+import {
+  defaultCacheOptions,
+  LoggerFactory,
+  WarpFactory,
+} from "warp-contracts";
 import * as fs from "fs";
 import { JWKInterface } from "arweave/node/lib/wallet";
 import { keyfile } from "../constants";
 
 (async () => {
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~UPDATE THE BELOW~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~UPDATE THE BELOW~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // This is the name that will be purchased in the Arweave Name System Registry
   const nameToBuy = "genesis";
 
@@ -13,22 +16,21 @@ import { keyfile } from "../constants";
   const contractTxId = "xEL3QuBjrJtlJm4DSHn7BKB5S-riLc1qCkmn3r-xkiE";
 
   // This is the production ArNS Registry Smartweave Contract
-  const arnsRegistryContractTxId = "bLAgYxAdX2Ry-nt6aH2ixgvJXbpsEYm28NgJgyqfs-U";
-
+  const arnsRegistryContractTxId =
+    "bLAgYxAdX2Ry-nt6aH2ixgvJXbpsEYm28NgJgyqfs-U";
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  // Initialize Arweave
-  const arweave = Arweave.init({
-    host: "arweave.net",
-    port: 443,
-    protocol: "https",
-  });
 
   // Initialize `LoggerFactory`
   LoggerFactory.INST.logLevel("error");
 
-  // Initialize SmartWeave
-  const smartweave = WarpNodeFactory.memCached(arweave);
+  // ~~ Initialize Warp ~~
+  const warp = WarpFactory.forMainnet(
+    {
+      ...defaultCacheOptions,
+      inMemory: true,
+    },
+    true
+  );
 
   // Get the key file used for the distribution
   const wallet: JWKInterface = JSON.parse(
@@ -36,7 +38,7 @@ import { keyfile } from "../constants";
   );
 
   // Read the ANT Registry Contract
-  const pst = smartweave.pst(arnsRegistryContractTxId);
+  const pst = warp.pst(arnsRegistryContractTxId);
   pst.connect(wallet);
 
   // check if this name exists in the registry, if not exit the script.
@@ -44,7 +46,10 @@ import { keyfile } from "../constants";
   const currentStateString = JSON.stringify(currentState);
   const currentStateJSON = JSON.parse(currentStateString);
   if (currentStateJSON.records[nameToBuy] !== undefined) {
-    console.log("This name %s is already taken and is not available for purchase.  Exiting.", nameToBuy);
+    console.log(
+      "This name %s is already taken and is not available for purchase.  Exiting.",
+      nameToBuy
+    );
     return;
   }
 
@@ -57,7 +62,7 @@ import { keyfile } from "../constants";
   const recordTxId = await pst.writeInteraction({
     function: "buyRecord",
     name: nameToBuy,
-    contractTransactionId: contractTxId,
+    contractTxId,
   });
   console.log("Finished purchasing the record: %s", recordTxId);
 })();

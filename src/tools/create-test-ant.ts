@@ -1,5 +1,5 @@
 import Arweave from "arweave";
-import { LoggerFactory, WarpNodeFactory } from "warp-contracts";
+import { LoggerFactory, WarpFactory } from "warp-contracts";
 import * as fs from "fs";
 import { testKeyfile } from "../constants";
 import { deployedTestContracts } from "../deployed-contracts";
@@ -12,6 +12,9 @@ import { addFunds } from "../../utils/_helpers";
 
   // A friendly name for the name of this token
   const name = "Example";
+
+  // The Time To Live for this ANT to reside cached, the default and minimum is 900 seconds
+  const ttlSeconds = 900;
 
   // The arweave data transaction that is to be proxied using the registered name
   const dataPointer = "zHpMN6UyTSSIo6WqER2527LvEvMKLlAcr3UR6ljd32Q";
@@ -31,8 +34,8 @@ import { addFunds } from "../../utils/_helpers";
   // ~~ Initialize `LoggerFactory` ~~
   LoggerFactory.INST.logLevel("error");
 
-  // ~~ Initialize SmartWeave ~~
-  const smartweave = WarpNodeFactory.memCached(arweave);
+  // ~~ Initialize Warp ~~
+  const warp = WarpFactory.forTestnet();
 
   // ~~ Generate Wallet and add funds ~~
   // const wallet = await arweave.wallets.generate();
@@ -40,16 +43,19 @@ import { addFunds } from "../../utils/_helpers";
   const wallet = JSON.parse(await fs.readFileSync(testKeyfile).toString());
   const walletAddress = await arweave.wallets.jwkToAddress(wallet);
   await addFunds(arweave, wallet);
-  
+
   // Create the initial state
   const initialState = {
     ticker: ticker,
     name,
     owner: walletAddress,
+    controller: walletAddress,
     evolve: null,
-    records: 
-    {
-      ["@"]: dataPointer,
+    records: {
+      "@": {
+        transactionId: dataPointer,
+        ttlSeconds: ttlSeconds,
+      },
     },
     balances: {
       [walletAddress]: 1,
@@ -58,7 +64,7 @@ import { addFunds } from "../../utils/_helpers";
 
   // ~~ Deploy contract ~~
   console.log("Creating ANT for %s", name);
-  const contractTxId = await smartweave.createContract.deployFromSourceTx({
+  const contractTxId = await warp.deployFromSourceTx({
     wallet,
     initState: JSON.stringify(initialState),
     srcTxId: antRecordContractTxId,
